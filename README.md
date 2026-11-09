@@ -1,4 +1,4 @@
 # slow-learning-of-C
-<img width="355" height="252" alt="my_gif" src="https://github.com/user-attachments/assets/01bdade6-14c1-46d3-9f12-c16d497e2681" />
+<img width="2048" height="2048" alt="image" src="https://github.com/user-attachments/assets/2501ae72-817e-4acd-8d97-60bd58399502" />
 
 ### Герой СИбГути
