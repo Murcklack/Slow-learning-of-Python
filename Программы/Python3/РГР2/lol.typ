@@ -252,3 +252,438 @@ AND:   10101100.00011000.10000000.00000000 (172.24.128.0)\
 В десятичной записи префикс OUI имеет вид 0.12.67.\
 По данным реестра IEEE (сервис macvendors.com), идентификатор 00:0C:43 официально зарегистрирован за компанией Ralink Technology, Corp. (подразделение MediaTek, выпускающее Wi-Fi чипы для роутеров и сетевых карт).
 #image("assets/image-3.png")
+
+#pagebreak()
+
+// ==================== РАЗДЕЛ 2 ====================
+#show heading.where(level: 2): set text(size: 14pt, weight: "bold")
+#show heading.where(level: 3): set text(size: 13pt, weight: "bold")
+#show heading.where(level: 2): set block(above: 1.2em, below: 0.6em)
+#show heading.where(level: 3): set block(above: 1em, below: 0.5em)
+#show raw.where(block: true): set text(size: 8pt)
+
+#show heading: set align(center)
+= *Раздел 2. Визуализация данных о фильмах средствами Matplotlib*
+#show heading: set align(left)
+
+== *Цель работы и исходные данные*
+
+Цель работы — освоить чтение табличных данных из текстового файла, их первичную обработку и построение графиков средствами библиотеки `Matplotlib`.
+
+В формулировке задания файл называется `movie.txt`, однако в работе используется фактически предоставленный файл `movies.txt`; его структура и формат полностью соответствуют заданию.
+
+== *Задание*
+
+#underline[Текст задания]\
+Работа состоит из трёх последовательных частей.
+
++ *Часть 1. Чтение файла.* Открыть `movies.txt`, прочитать заголовок, разбить строки по `;`, преобразовать числовые поля, вывести число записей, названия столбцов, первые пять строк и минимальный/максимальный год. Сделать вывод о пригодности столбцов для визуализации.
++ *Часть 2. Базовые графики.* Построить гистограмму распределения рейтингов, горизонтальную столбчатую диаграмму топ-10 жанров и круговую диаграмму топ-5 жанров с категорией «Другие».
++ *Часть 3. Сравнение по годам.* Построить линейный график среднего рейтинга фильмов по годам начиная с 1990 года, отметить год с максимальным средним рейтингом через `annotate`, добавить горизонтальную линию общего среднего через `axhline` и сформулировать вывод.
+
+#pagebreak()
+== *Часть 1. Чтение файла и первичный осмотр*
+
+В первой части файл открывается в режиме чтения. Заголовок считывается отдельно и разбивается по `;`. Остальные строки последовательно разбираются, числовые поля преобразуются в `int` и `float`. Одновременно определяются минимальный и максимальный годы и сохраняются первые пять записей.
+
+```python
+with open("movies.txt", "r", encoding="utf-8") as f:
+    first = f.readline().strip().split(";")
+    five = []
+
+    minimum = 2030
+    maximum = 0
+    for count, line in enumerate(f, start=1):
+            normal_line = line.strip().split(";")
+            if not line.strip():
+                continue
+
+            normal_line[1] = int(normal_line[1])
+            normal_line[3] = float(normal_line[3])
+            normal_line[4] = int(normal_line[4])
+            normal_line[5] = int(float(normal_line[5]))
+            normal_line[6] = float(normal_line[6])
+            normal_line[7] = float(normal_line[7])
+
+            if count <= 5:
+                five += [normal_line]
+            maximum = max(maximum, normal_line[1])
+            minimum = min(minimum, normal_line[1])
+
+    print(f"Число строк данных(без заголовка): {count}")
+    print("названия столбцов")
+    print(" ".join(first) + "\n")
+    print("первые 5 записей в читаемом виде")
+    for x in five:
+        clean = " | ".join(str(item) for item in x)
+        print(clean)
+    print(
+        f"минимальный = {minimum} и максимальный = {maximum} год выпуска среди записей"
+    )
+```
+
+Фрагмент исходного файла `movies.txt`:
+
+```text
+title;year;genre;rating;votes;duration;budget;gross;type
+Kate & Leopold;2001;Comedy;6.4;77852;118;48000000;76019048;movie
+I figli del fuoco;1990;Horror;4.8;2252;97;5500000;50367;movie
+Le avventure di Ford Fairlane;1990;Action;6.5;16914;104;20000000;21413502;movie
+Air America;1990;Action;5.8;26579;113;35000000;33461269;movie
+Alice;1990;Comedy;6.6;13112;106;12000000;7331647;movie
+Un angelo da quattro soldi;1990;Comedy;5.6;3994;95;25000000;6939946;movie
+```
+
+#align(center)[#image("screenshots/chapter1.png", width: 95%)]
+#align(center)[#text(size: 11pt, style: "italic")[Рисунок 1 — вывод программы для части 1]]
+
+*Анализ результатов.*
+В файле 11 272 строки данных и 9 столбцов: `title`, `year`, `genre`, `rating`, `votes`, `duration`, `budget`, `gross`, `type`. Минимальный год выпуска — 1990, максимальный — 2020. Все числовые столбцы корректно преобразуются в `int` или `float`, пропусков нет.
+
+Для визуализации пригодны все столбцы. Для гистограммы лучше всего подходит `rating`, так как это количественный признак с большим числом наблюдений. Для столбчатой и круговой диаграмм — `genre`, поскольку это категориальный признак. Для линейного графика — пара `year` и `rating`. Для диаграммы рассеяния можно использовать `budget` и `gross` или `votes` и `rating`.
+
+#pagebreak()
+== *Часть 2. Базовые графики*
+
+Во второй части построены три отдельных графика: гистограмма рейтингов, горизонтальная столбчатая диаграмма топ-10 жанров и круговая диаграмма распределения жанров. Для каждого графика заданы заголовок, подписи осей, сетка и легенда; цвета столбцов различаются.
+
+=== *1. Гистограмма распределения рейтингов*
+
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+
+with open("movies.txt", "r", encoding="utf-8") as f:
+    first = f.readline().strip().split(";")
+    all_nrmalized = []
+
+    for line in f:
+        normal_line = line.strip().split(";")
+        all_nrmalized += [normal_line]
+
+raiting = []
+
+for x in all_nrmalized:
+    raiting.append(float(x[3]))
+
+fig, ax = plt.subplots(figsize=(12, 6))
+
+n, bins, patches = ax.hist(
+    raiting,
+    bins=10,
+    edgecolor="black",
+    label="Интервалы рейтингов",
+)
+
+colors = [
+    "red",
+    "orange",
+    "gold",
+    "green",
+    "teal",
+    "blue",
+    "indigo",
+    "purple",
+    "pink",
+    "brown",
+]
+
+for i in range(len(patches)):
+    patches[i].set_facecolor(colors[i % len(colors)])
+
+max_i = list(n).index(max(n))
+patches[max_i].set_facecolor("limegreen")
+patches[max_i].set_label(f"Больше всего фильмов ({int(n[max_i])})")
+
+centers = []
+labels = []
+for i in range(len(bins) - 1):
+    center = (bins[i] + bins[i + 1]) / 2
+    centers.append(center)
+    labels.append(f"{round(bins[i],1)}–{round(bins[i + 1],1)}")
+
+ax.set_xticks(centers)
+ax.set_xticklabels(labels, rotation=25, ha="right")
+
+ax.set_title("Распределение рейтингов")
+ax.set_xlabel("Рейтинг IMDb")
+ax.set_ylabel("Количество фильмов")
+
+ax.set_ylim(0, max(n) + 250)
+ax.grid(True, axis="y", linestyle="--", alpha=0.5)
+ax.legend()
+
+fig.tight_layout()
+fig.savefig("movies_raitings.png", dpi=150)
+plt.show()
+```
+
+#align(center)[#image("movies_raitings.png", width: 95%)]
+#align(center)[#text(size: 11pt, style: "italic")[Рисунок 2 — распределение рейтингов фильмов]]
+
+*Анализ.*
+Диапазон рейтингов разбит на 10 интервалов. Наибольшее число фильмов — 4 080 — попадает в интервал 6,0–6,8. Второй по величине интервал 5,2–6,0 содержит 2 510 фильмов, третий 6,8–7,6 — 2 231 фильм. Крайние интервалы почти пусты: 1,0–1,8 — 21 фильм, 8,5–9,3 — 48 фильмов. Основная масса фильмов (около 78 %) имеет рейтинг от 5,2 до 7,6, то есть распределение имеет один выраженный максимум в области средних оценок.
+
+#pagebreak()
+=== *2. Столбчатая диаграмма топ-10 жанров*
+
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+
+with open("movies.txt", "r", encoding="utf-8") as f:
+    first = f.readline().strip().split(";")
+    all_nrmalized = []
+
+    for line in f:
+        normal_line = line.strip().split(";")
+        all_nrmalized += [normal_line]
+
+geners = []
+
+for x in all_nrmalized:
+    geners.append(x[2])
+
+geners = list(set(geners))
+movies_geners = []
+
+for x in geners:
+    count = 0
+    for line in all_nrmalized:
+        if line[2] == x:
+            count += 1
+    movies_geners += [count]
+
+pairs = []
+
+for i in range(len(geners)):
+    pairs += [[movies_geners[i], geners[i]]]
+
+pairs.sort(reverse=True)
+
+top_geners = [pairs[x][1] for x in range(10)]
+top_counts = [pairs[x][0] for x in range(10)]
+
+y = np.arange(len(top_geners))
+max_idx = int(np.argmax(top_counts))
+
+fig, ax = plt.subplots(figsize=(14, 7))
+
+colors = [
+    "orange",
+    "gold",
+    "teal",
+    "skyblue",
+    "plum",
+    "coral",
+    "khaki",
+    "mediumpurple",
+    "lightseagreen",
+    "limegreen",
+]
+
+bars = ax.barh(
+    y,
+    top_counts,
+    height=0.6,
+    color=colors[: len(top_geners)],
+    edgecolor="black",
+)
+
+bars[max_idx].set_color("green")
+bars[max_idx].set_edgecolor("black")
+bars[max_idx].set_label(
+    f"Лидер: {top_geners[max_idx]} ({top_counts[max_idx]})"
+)
+
+ax.barh(
+    [0],
+    [0],
+    color="orange",
+    edgecolor="black",
+    label="Остальные жанры из топ-10",
+)
+
+ax.set_title("Топ-10 жанров по количеству фильмов")
+ax.set_xlabel("Количество фильмов")
+ax.set_ylabel("Жанр")
+
+ax.set_yticks(y)
+ax.set_yticklabels(top_geners)
+
+ax.set_xlim(0, max(top_counts) + 100)
+ax.grid(True, axis="x", linestyle="--", alpha=0.5)
+ax.legend(loc="upper right")
+
+fig.tight_layout()
+fig.savefig("genere.png", dpi=150)
+plt.show()
+```
+
+#align(center)[#image("genere.png", width: 95%)]
+#align(center)[#text(size: 11pt, style: "italic")[Рисунок 3 — топ-10 жанров по количеству фильмов]]
+
+*Анализ.*
+Лидирует жанр Comedy — 3 163 фильма (28,1 %). Далее следуют Drama — 2 654 (23,5 %) и Action — 2 295 (20,4 %). Заметно меньше фильмов в жанрах Crime (771), Biography (567), Animation (512), Adventure (508) и Horror (480). Замыкают десятку Thriller (73) и Fantasy (55). Три первых жанра охватывают около 72 % всех записей, поэтому распределение сильно смещено в сторону комедий, драм и боевиков.
+
+#pagebreak()
+=== *3. Круговая диаграмма распределения жанров*
+
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+
+with open("movies.txt", "r", encoding="utf-8") as f:
+    first = f.readline().strip().split(";")
+    all_nrmalized = []
+
+    for line in f:
+        normal_line = line.strip().split(";")
+        all_nrmalized += [normal_line]
+
+geners = []
+
+for x in all_nrmalized:
+    geners.append(x[2])
+
+geners = list(set(geners))
+movies_geners = []
+
+for x in geners:
+    count = 0
+    for line in all_nrmalized:
+        if line[2] == x:
+            count += 1
+    movies_geners += [count]
+
+pairs = []
+
+for i in range(len(geners)):
+    pairs += [[movies_geners[i], geners[i]]]
+
+pairs.sort(reverse=True)
+
+top_geners = [pairs[x][1] for x in range(5)] + ["Другие"]
+top_counts = [pairs[x][0] for x in range(5)]
+other_counts = sum([pairs[x][0] for x in range(len(pairs))]) - sum(
+    [x for x in top_counts]
+)
+top_counts.append(other_counts)
+
+fig, ax = plt.subplots(figsize=(7, 7))
+
+ax.pie(top_counts, labels=top_geners, autopct="%1.1f%%")
+
+ax.set_title("Доли жанров")
+
+fig.tight_layout()
+fig.savefig("generes_pie.png", dpi=150)
+plt.show()
+```
+
+#align(center)[#image("generes_pie.png", width: 65%)]
+#align(center)[#text(size: 11pt, style: "italic")[Рисунок 4 — доли жанров]]
+
+*Анализ.*
+На диаграмме выделены пять самых популярных жанров и объединённая категория «Другие». Comedy занимает 28,1 %, Drama — 23,5 %, Action — 20,4 %, Crime — 6,8 %, Biography — 5,0 %, на «Другие» приходится 16,2 %. Топ-5 жанров охватывает около 83,8 % фильмов, что подтверждает высокую концентрацию данных в нескольких категориях.
+
+#pagebreak()
+== *Часть 3. Сравнение по годам*
+
+В третьей части для каждого года собирается список рейтингов, после чего вычисляется среднее значение. На графике отмечен год с максимальным средним рейтингом, а горизонтальная линия показывает общий средний рейтинг по всем фильмам.
+
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+
+with open("movies.txt", "r", encoding="utf-8") as f:
+    first = f.readline().strip().split(";")
+    all_nrmalized = []
+
+    for line in f:
+        normal_line = line.strip().split(";")
+        all_nrmalized += [normal_line]
+
+years = []
+
+for i in all_nrmalized:
+    years.append(i[1])
+
+year_dict = {y: [] for y in sorted(set(years))}
+x_graph = sorted(set(years))
+
+for i in all_nrmalized:
+    year = i[1]
+    raiting = i[3]
+
+    year_dict[year].append(raiting)
+
+y_graph = []
+for i in year_dict.items():
+    suma = 0
+    for x in i[1]:
+        suma += float(x)
+    y_graph.append(suma / len(i[1]))
+
+sr_overal = 0
+for i in all_nrmalized:
+    sr_overal += float(i[3])
+sr_overal /= len(all_nrmalized)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+
+ax.plot(x_graph, y_graph, linestyle="-", color="red", label="Рейтинг")
+max_idx = int(np.argmax(y_graph))
+plt.annotate(
+    f"Максимум в {x_graph[max_idx]} г. при значении: {round(max(y_graph), 2)}",
+    xy=(x_graph[max_idx], max(y_graph)),
+    xytext=(x_graph[max_idx], max(y_graph) + 0.2),
+    arrowprops={"facecolor": "yellow", "shrink": 0.05},
+)
+
+ax.axhline(
+    sr_overal,
+    color="grey",
+    linestyle="--",
+    label=f"Общий средний рейтинг ({round(sr_overal, 2)})",
+)
+ax.set_title("Средний рейтинг фильмов по годам выпуска (с 1990 года)")
+ax.set_xlabel("Год")
+ax.set_ylabel("Средний рейтинг")
+ax.set_xlim(-0.5, len(x_graph) - 0.5)
+ax.set_ylim(min(y_graph) - 0.5, max(y_graph) + 0.5)
+ax.set_xticks(x_graph)
+ax.set_xticklabels(x_graph, rotation=45)
+ax.grid(True, linestyle="--", alpha=0.5)
+ax.legend(loc="upper right")
+
+fig.savefig("sr_raiting.png", dpi=150)
+plt.show()
+
+print(
+    f"Максимальный средний рейтинг: {round(max(y_graph), 2)} "
+    f"в {x_graph[max_idx]} году"
+)
+print(f"Общий средний рейтинг: {round(sr_overal, 2)}")
+if max(y_graph) > sr_overal:
+    print("Пик ВЫШЕ общего среднего рейтинга.")
+else:
+    print("Пик НИЖЕ общего среднего рейтинга.")
+```
+
+#align(center)[#image("sr_raiting.png", width: 95%)]
+#align(center)[#text(size: 11pt, style: "italic")[Рисунок 5 — средний рейтинг фильмов по годам]]
+
+#align(center)[#image("screenshots/chapter3.png", width: 70%)]
+#align(center)[#text(size: 11pt, style: "italic")[Рисунок 6 — вывод программы для части 3]]
+
+*Анализ.*
+Максимальный средний рейтинг — 6,47 — достигается в 1995 году. Общий средний рейтинг по всем фильмам составляет 6,10, поэтому пик 1995 года выше общего среднего на 0,37 балла.
+
+С 1990 по 2012 год наблюдается общая тенденция к снижению: если в 1990–1995 годах средний рейтинг держался около 6,3–6,5, то к 2011–2012 годам он опустился до 5,9. В 2013–2019 годах значения стабилизировались около 6,0–6,1. Резкое падение в 2020 году до 5,62 объясняется малой выборкой — в этом году представлено всего 70 фильмов, поэтому значение менее устойчиво и не должно интерпретироваться как общая тенденция.
+
+== *Вывод*
+
+В ходе работы был освоен полный цикл обработки табличных данных средствами Python: чтение текстового файла с разделителем, разбор строк, преобразование типов, группировка записей и вычисление средних значений. С помощью библиотеки `Matplotlib` построены гистограмма, горизонтальная столбчатая диаграмма, круговая диаграмма и линейный график; использованы подписи осей, заголовки, сетка, легенды, аннотация максимальной точки и горизонтальная линия среднего значения.
+
+Анализ файла `movies.txt` показал, что в наборе представлено 11 272 фильма за 1990–2020 годы. Большая часть фильмов имеет рейтинг от 5,2 до 7,6, а самым популярным жанром является комедия. Средний рейтинг по годам постепенно снижается; максимальное значение 6,47 достигнуто в 1995 году, что выше общего среднего рейтинга 6,10. Полученные результаты относятся только к данному файлу и не претендуют на универсальность для всей киноиндустрии.
